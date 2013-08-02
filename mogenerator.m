@@ -902,10 +902,18 @@ NSString *ApplicationSupportSubdirectoryName = @"mogenerator";
     int humanFilesGenerated = 0;
     
     if (model) {
-        MiscMergeEngine *machineH = engineWithTemplateDesc([self templateDescNamed:@"machine.h.motemplate"]);
-        assert(machineH);
-        MiscMergeEngine *machineM = engineWithTemplateDesc([self templateDescNamed:@"machine.m.motemplate"]);
-        assert(machineM);
+        MiscMergeEngine *machineH = nil;
+        if (!baseFilename) {
+            machineH = engineWithTemplateDesc([self templateDescNamed:@"machine.h.motemplate"]);
+            assert(machineH);
+        }
+
+        MiscMergeEngine *machineM = nil;
+        if (!baseFilename) {
+            machineM = engineWithTemplateDesc([self templateDescNamed:@"machine.m.motemplate"]);
+            assert(machineM);
+        }
+        
         MiscMergeEngine *humanH = engineWithTemplateDesc([self templateDescNamed:@"human.h.motemplate"]);
         assert(humanH);
         MiscMergeEngine *humanM = engineWithTemplateDesc([self templateDescNamed:@"human.m.motemplate"]);
