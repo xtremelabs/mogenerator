@@ -164,10 +164,7 @@ NSString  *gCustomBaseClassForced;
     NSMutableArray *filteredAttributeDescriptions = [NSMutableArray arrayWithCapacity:[attributeDescriptions count]];
     
     nsenumerate(attributeDescriptions, NSAttributeDescription, attributeDescription) {
-        if ([[attributeDescription name] isEqualToString:@"type"]) {
-            ddprintf(@"WARNING skipping 'type' attribute on %@ (%@) - see https://github.com/rentzsch/mogenerator/issues/74\n",
-                     self.name, self.managedObjectClassName);
-        } else {
+        if (![[attributeDescription name] isEqualToString:@"type"]) {
             [filteredAttributeDescriptions addObject:attributeDescription];
         }
     }
@@ -588,6 +585,7 @@ NSString *ApplicationSupportSubdirectoryName = @"mogenerator";
     // Long                 Short   Argument options
     {@"model",              'm',    DDGetoptRequiredArgument},
     {@"configuration",      'C',    DDGetoptRequiredArgument},
+    {@"base-filename",      0,      DDGetoptRequiredArgument},
     {@"base-class",         0,     DDGetoptRequiredArgument},
     {@"base-class-import",  0,     DDGetoptRequiredArgument},
     {@"base-class-force",   0,     DDGetoptRequiredArgument},
@@ -619,6 +617,7 @@ NSString *ApplicationSupportSubdirectoryName = @"mogenerator";
     printf("\n"
            "  -m, --model MODEL             Path to model\n"
            "  -C, --configuration CONFIG    Only consider entities included in the named configuration\n"
+           "      --base-filename           Use base filename when generating files\n"
            "      --base-class CLASS        Custom base class\n"
            "      --base-class-import TEXT        Imports base class as #import TEXT\n"
            "      --base-class-force CLASS  Same as --base-class except will force all entities to have the specified base class. Even if a super entity exists\n"
@@ -939,30 +938,33 @@ NSString *ApplicationSupportSubdirectoryName = @"mogenerator";
                 [machineHFiles addObject:machineHFileName];
             } else {
                 if (![fm regularFileExistsAtPath:machineHFileName] || ![generatedMachineH isEqualToString:[NSString stringWithContentsOfFile:machineHFileName encoding:NSUTF8StringEncoding error:nil]]) {
-                    //  If the file doesn't exist or is different than what we just generated, write it out.
-                    [generatedMachineH writeToFile:machineHFileName atomically:NO encoding:NSUTF8StringEncoding error:nil];
-                    machineDirtied = YES;
-                    machineFilesGenerated++;
+                    if (!baseFilename) {
+                        //  If the file doesn't exist or is different than what we just generated, write it out.
+                        [generatedMachineH writeToFile:machineHFileName atomically:NO encoding:NSUTF8StringEncoding error:nil];
+                        machineDirtied = YES;
+                        machineFilesGenerated++;
+                    }
                 }
             }
             
             // Machine source files.
-            NSString *machineMFileName = [machineDir stringByAppendingPathComponent:
-                [NSString stringWithFormat:@"_%@.m", entityClassName]];
+            NSString *machineMFileName = [machineDir stringByAppendingPathComponent:[NSString stringWithFormat:@"_%@.m", entityClassName]];
             if (_listSourceFiles) {
                 [machineMFiles addObject:machineMFileName];
             } else {
                 if (![fm regularFileExistsAtPath:machineMFileName] || ![generatedMachineM isEqualToString:[NSString stringWithContentsOfFile:machineMFileName encoding:NSUTF8StringEncoding error:nil]]) {
-                    //  If the file doesn't exist or is different than what we just generated, write it out.
-                    [generatedMachineM writeToFile:machineMFileName atomically:NO encoding:NSUTF8StringEncoding error:nil];
-                    machineDirtied = YES;
-                    machineFilesGenerated++;
+                    if (!baseFilename) {
+                        //  If the file doesn't exist or is different than what we just generated, write it out.
+                        [generatedMachineM writeToFile:machineMFileName atomically:NO encoding:NSUTF8StringEncoding error:nil];
+                        machineDirtied = YES;
+                        machineFilesGenerated++;
+                    }
                 }
             }
             
             // Human header files.
             NSString *humanHFileName = [humanDir stringByAppendingPathComponent:
-                [NSString stringWithFormat:@"%@.h", entityClassName]];
+                [NSString stringWithFormat:@"%@%@.h", entityClassName, baseFilename ?: @""]];
             if (_listSourceFiles) {
                 [humanHFiles addObject:humanHFileName];
             } else {
@@ -977,9 +979,9 @@ NSString *ApplicationSupportSubdirectoryName = @"mogenerator";
             
             //  Human source files.
             NSString *humanMFileName = [humanDir stringByAppendingPathComponent:
-                [NSString stringWithFormat:@"%@.m", entityClassName]];
+                [NSString stringWithFormat:@"%@%@.m", entityClassName, baseFilename ?: @""]];
             NSString *humanMMFileName = [humanDir stringByAppendingPathComponent:
-                [NSString stringWithFormat:@"%@.mm", entityClassName]];
+                [NSString stringWithFormat:@"%@%@.mm", entityClassName, baseFilename ?: @""]];
             if (![fm regularFileExistsAtPath:humanMFileName] && [fm regularFileExistsAtPath:humanMMFileName]) {
                 //  Allow .mm human files as well as .m files.
                 humanMFileName = humanMMFileName;
@@ -1016,13 +1018,17 @@ NSString *ApplicationSupportSubdirectoryName = @"mogenerator";
         [fm removeItemAtPath:tempGeneratedMomFilePath error:nil];
     }
     bool mfileGenerated = NO;
-    if (mfilePath && ![mfileContent isEqualToString:@""] && (![fm regularFileExistsAtPath:mfilePath] || ![[NSString stringWithContentsOfFile:mfilePath encoding:NSUTF8StringEncoding error:nil] isEqualToString:mfileContent])) {
-        [mfileContent writeToFile:mfilePath atomically:NO encoding:NSUTF8StringEncoding error:nil];
-        mfileGenerated = YES;
+    if (!baseFilename) {
+        if (mfilePath && ![mfileContent isEqualToString:@""] && (![fm regularFileExistsAtPath:mfilePath] || ![[NSString stringWithContentsOfFile:mfilePath encoding:NSUTF8StringEncoding error:nil] isEqualToString:mfileContent])) {
+            NSLog(@"filePath: %@", mfilePath);
+            [mfileContent writeToFile:mfilePath atomically:NO encoding:NSUTF8StringEncoding error:nil];
+            mfileGenerated = YES;
+        }
     }
 
     bool hfileGenerated = NO;
     if (hfilePath && ![hfileContent isEqualToString:@""] && (![fm regularFileExistsAtPath:hfilePath] || ![[NSString stringWithContentsOfFile:hfilePath encoding:NSUTF8StringEncoding error:nil] isEqualToString:hfileContent])) {
+        NSLog(@"filePath: %@", hfilePath);
         [hfileContent writeToFile:hfilePath atomically:NO encoding:NSUTF8StringEncoding error:nil];
         hfileGenerated = YES;
     }

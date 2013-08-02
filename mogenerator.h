@@ -70,6 +70,7 @@
     NSString              *machineDir;
     NSString              *humanDir;
     NSString              *templateGroup;
+    NSString              *baseFilename;
     BOOL                  _help;
     BOOL                  _version;
     BOOL                  _listSourceFiles;
